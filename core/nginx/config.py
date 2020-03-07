@@ -24,19 +24,28 @@ if args["WEBDAV"] != "none":
 # TLS configuration
 cert_name = os.getenv("TLS_CERT_FILENAME", default="cert.pem")
 keypair_name = os.getenv("TLS_KEYPAIR_FILENAME", default="key.pem")
+cert_name_https = os.getenv("TLS_CERT_FILENAME_HTTPS", default="cert-http.pem")
+keypair_name_https = os.getenv("TLS_KEYPAIR_FILENAME_HTTPS", default="key-http.pem")
 args["TLS"] = {
-    "cert": ("/certs/%s" % cert_name, "/certs/%s" % keypair_name),
+    "cert": ("/certs/%s" % cert_name, "/certs/%s" % keypair_name, "/certs/%s" % cert_name, "/certs/%s" % keypair_name),
+    "cert-https-cert": ("/certs/%s" % cert_name, "/certs/%s" % keypair_name, "/certs/%s" % cert_name_https, "/certs/%s" % keypair_name_https),
     "letsencrypt": ("/certs/letsencrypt/live/mailu/fullchain.pem",
-        "/certs/letsencrypt/live/mailu/privkey.pem"),
-    "mail": ("/certs/%s" % cert_name, "/certs/%s" % keypair_name),
+        "/certs/letsencrypt/live/mailu/privkey.pem", "/certs/letsencrypt/live/mailu/fullchain.pem", "/certs/letsencrypt/live/mailu/privkey.pem"),
+    "mail": ("/certs/%s" % cert_name, "/certs/%s" % keypair_name, None, None),
     "mail-letsencrypt": ("/certs/letsencrypt/live/mailu/fullchain.pem",
-        "/certs/letsencrypt/live/mailu/privkey.pem"),
-    "notls": None
+        "/certs/letsencrypt/live/mailu/privkey.pem", None, None),
+    "mail-letsencrypt-https-cert":("/certs/letsencrypt/live/mailu/fullchain.pem", "/certs/letsencrypt/live/mailu/privkey.pem", "/certs/%s" % cert_name_https, "/certs/%s" % keypair_name_https),
+    "notls": (None, None, None, None)
 }[args["TLS_FLAVOR"]]
 
-if args["TLS"] and not all(os.path.exists(file_path) for file_path in args["TLS"]):
-    print("Missing cert or key file, disabling TLS")
-    args["TLS_ERROR"] = "yes"
+for index, file_path in enumerate(args["TLS"]):
+    if file_path != None and not(os.path.exists(file_path)):
+        if index < 2 and args.get("TLS_ERROR", '') != 'yes':
+            print("Missing cert or key file, disabling TLS for mail")
+            args["TLS_ERROR"] = "yes"
+        elif index > 1 and args.get("TLS_ERROR_HTTPS",'') != 'yes':
+            print("Missing cert or key file, disabling TLS for https")
+            args["TLS_ERROR_HTTPS"] = "yes"
 
 # Build final configuration paths
 conf.jinja("/conf/tls.conf", args, "/etc/nginx/tls.conf")
